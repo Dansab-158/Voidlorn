@@ -107,6 +107,15 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+
+    // Enables MDG's JUnit integration: the `test` task runs with a real (headless) FML/NeoForge
+    // launch, so unit tests may touch Minecraft's built-in registries (e.g. BiomeSource, Biome)
+    // without hitting "Not bootstrapped" / FeatureFlags-requires-LoadingModList failures that
+    // occur under a bare JUnit classpath.
+    unitTest {
+        testedMod = mods.named(mod_id)
+        enable()
+    }
 }
 
 // Sets up a dependency configuration called 'localRuntime'.
@@ -115,6 +124,8 @@ neoForge {
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    testCompileClasspath.extendsFrom runtimeClasspath
+    testRuntimeClasspath.extendsFrom runtimeClasspath
 }
 
 dependencies {
@@ -139,6 +150,17 @@ dependencies {
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+
+    // Make NeoForge classes available to test compilation
+    testImplementation "net.neoforged:neoforge:${neo_version}"
+}
+
+test {
+    useJUnitPlatform()
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

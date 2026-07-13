@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:the_end",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "voidlorn:end_archipelago",
+    "biome_source": {
+      "type": "voidlorn:archipelago",
+      "seed": 0,
+      "archipelago_biomes": "#voidlorn:archipelago_biomes",
+      "center_biome": "minecraft:the_end"
+    }
+  }
+}
