@@ -32,50 +32,68 @@ public final class ArchipelagoIslandsDensityFunction implements DensityFunction.
     public static final MapCodec<ArchipelagoIslandsDensityFunction> CODEC =
             RecordCodecBuilder.mapCodec(inst -> inst.group(
                     com.mojang.serialization.Codec.LONG.optionalFieldOf("seed", 0L)
-                            .forGetter(f -> f.seed)
+                            .forGetter(f -> f.seed),
+                    // true picks the small filler-islet profile instead of the real archipelago one -
+                    // see filler_islets_shaped.json, which is the only place this is set to true.
+                    com.mojang.serialization.Codec.BOOL.optionalFieldOf("filler", false)
+                            .forGetter(f -> f.filler)
             ).apply(inst, ArchipelagoIslandsDensityFunction::new));
 
     private static final KeyDispatchDataCodec<ArchipelagoIslandsDensityFunction> KEY_CODEC =
             KeyDispatchDataCodec.of(CODEC);
 
-    // All tunable in playtest - none of these affect where islands are, just how they look.
-
-    // How fast the hill/monolith noise wiggles across the surface. Higher = bumpier, more
-    // frequent hills; lower = smoother, gentler terrain. This needs to be high enough that even a
-    // small island (radius ~24-46) shows a few real bumps rather than a single gentle slope from
-    // one edge to the other - at the old value (0.012, ~80-block wavelength) an island this size
-    // only ever saw a fraction of one wave, so every island read as a flat, slightly tilted mesa
-    // instead of having real hills. 0.045 gives a ~22-block wavelength, so even the smallest
-    // islands get a couple of real peaks and dips.
-    private static final double SHAPE_FREQ = 0.045;
-
-    // How fast the thickness noise varies. Raised alongside SHAPE_FREQ for the same reason - the
-    // old value barely changed across a single island either.
-    private static final double THICK_FREQ = 0.035;
-
-    // Frequency of the 3D noise that carves canyons/arches/overhangs into islands. XZ controls
-    // how tightly carved features are spaced sideways; Y controls how tightly spaced vertically.
-    private static final double CARVE_FREQ_XZ = 0.014;
-    private static final double CARVE_FREQ_Y = 0.022;
-
-    // How aggressively the carve noise can eat into (or occasionally add to) an island's shape.
-    // Higher = more dramatic canyons/overhangs, but also a rougher, more broken-up silhouette.
-    private static final double CARVE_AMP = 0.55;
+    // The shape/thickness/carve numbers below all live in WorldgenTuning now (backed by config -
+    // see Config.java's archipelagoShapeFreq/archipelagoThickFreq/archipelagoCarveFreq*/
+    // archipelagoCarveAmp entries for what each one does and why). Only GAP_CUTOFF stays a plain
+    // constant here, since it's a performance guard rather than a "feel" knob.
 
     // Once a column's horizontal distance from an island's center passes this (very negative)
     // falloff value, we short-circuit straight to "void" without even bothering to compute the
     // rest of the shape - it's purely a performance guard, not something you'd normally tune.
     private static final double GAP_CUTOFF = -1.5;
 
-    private final long seed;
+    private long seed;
+    private final boolean filler;
     private final ArchipelagoCellSampler sampler;
-    private final SimplexNoise shapeNoise;
-    private final SimplexNoise thicknessNoise;
-    private final SimplexNoise carveNoise;
+    private SimplexNoise shapeNoise;
+    private SimplexNoise thicknessNoise;
+    private SimplexNoise carveNoise;
 
     public ArchipelagoIslandsDensityFunction(long seed) {
+        this(seed, false);
+    }
+
+    /** @param filler true for the small stepping-stone islet layer, false for the real archipelagos. */
+    public ArchipelagoIslandsDensityFunction(long seed, boolean filler) {
         this.seed = seed;
-        this.sampler = new ArchipelagoCellSampler(seed);
+        this.filler = filler;
+        this.sampler = new ArchipelagoCellSampler(seed, filler);
+        this.shapeNoise = new SimplexNoise(new LegacyRandomSource(seed));
+        this.thicknessNoise = new SimplexNoise(new LegacyRandomSource(seed + 0x1234567L));
+        this.carveNoise = new SimplexNoise(new LegacyRandomSource(seed + 0x89ABCDEFL));
+    }
+
+    /** Whether this instance renders the small filler islets rather than the real archipelagos. */
+    public boolean isFiller() {
+        return filler;
+    }
+
+    private WorldgenTuning.IslandProfile profile() {
+        WorldgenTuning.Snapshot tuning = WorldgenTuning.ACTIVE;
+        return filler ? tuning.filler() : tuning.main();
+    }
+
+    /**
+     * Reseeds this function in place - rebuilds the sampler and all three owned noise sources
+     * from the new seed. Used once, at server start, to swap in the real world seed (see
+     * {@link WorldSeedInjector}) instead of the placeholder {@code seed: 0} baked into
+     * {@code archipelago_shaped.json}. Safe to call even though the fields it touches used to be
+     * {@code final} - nothing reads them concurrently with this, since it only ever runs once,
+     * before any chunk has had a chance to generate.
+     */
+    public void setSeed(long seed) {
+        this.seed = seed;
+        this.sampler.setSeed(seed);
         this.shapeNoise = new SimplexNoise(new LegacyRandomSource(seed));
         this.thicknessNoise = new SimplexNoise(new LegacyRandomSource(seed + 0x1234567L));
         this.carveNoise = new SimplexNoise(new LegacyRandomSource(seed + 0x89ABCDEFL));
@@ -84,7 +102,8 @@ public final class ArchipelagoIslandsDensityFunction implements DensityFunction.
     /** The noise-warped surface Y of the island nearest to (x,z). Exposed for tests. */
     public double surfaceYAt(int x, int z) {
         IslandCore core = nearestCoreAcrossCells(x, z);
-        double shape = shapeNoise.getValue(x * SHAPE_FREQ, z * SHAPE_FREQ);
+        double shapeFreq = WorldgenTuning.ACTIVE.shapeFreq();
+        double shape = shapeNoise.getValue(x * shapeFreq, z * shapeFreq);
         return core.centerY() + shape * core.hillAmp();
     }
 
@@ -106,8 +125,9 @@ public final class ArchipelagoIslandsDensityFunction implements DensityFunction.
      * site hash/jitter math instead of a second copy that could drift out of sync.
      */
     private IslandCore nearestCoreAcrossCells(int x, int z) {
-        int gx = Math.floorDiv(x, ArchipelagoCellSampler.CELL_SIZE);
-        int gz = Math.floorDiv(z, ArchipelagoCellSampler.CELL_SIZE);
+        int cellSize = profile().cellSize();
+        int gx = Math.floorDiv(x, cellSize);
+        int gz = Math.floorDiv(z, cellSize);
 
         IslandCore best = null;
         double bestSq = Double.MAX_VALUE;
@@ -130,28 +150,51 @@ public final class ArchipelagoIslandsDensityFunction implements DensityFunction.
 
     /** Pure, unit-testable density. Solid where {@code > 0}; clamped to [-1, 1]. */
     public double density(int x, int y, int z) {
+        WorldgenTuning.Snapshot tuning = WorldgenTuning.ACTIVE;
         IslandCore core = nearestCoreAcrossCells(x, z);
 
         double dx = x - core.x();
         double dz = z - core.z();
         double hDist = Math.sqrt(dx * dx + dz * dz);
-        double hMask = 1.0 - hDist / core.radius();     // 1 at center, 0 at edge, negative beyond
+        double hMask = smoothTaper(hDist / core.radius());     // 1 at center, 0 at edge, negative beyond
         if (hMask <= GAP_CUTOFF) {
             return -1.0;                                 // clearly outside any island => void gap
         }
 
-        double shape = shapeNoise.getValue(x * SHAPE_FREQ, z * SHAPE_FREQ);
+        double shape = shapeNoise.getValue(x * tuning.shapeFreq(), z * tuning.shapeFreq());
         double surfaceY = core.centerY() + shape * core.hillAmp();
-        double thicknessN = thicknessNoise.getValue(x * THICK_FREQ, z * THICK_FREQ);
+        double thicknessN = thicknessNoise.getValue(x * tuning.thickFreq(), z * tuning.thickFreq());
         // 0.65/0.35 keep the actual thickness between 65% and 100% of the core's height (never 0,
         // so an island can't randomly pinch down to nothing) while still letting it vary a bit.
         double thickness = core.height() * (0.65 + 0.35 * thicknessN);
-        double vMask = 1.0 - Math.abs(y - surfaceY) / thickness;
+        double vMask = smoothTaper(Math.abs(y - surfaceY) / thickness);
 
         double blob = Math.min(hMask, vMask);            // solid only where BOTH proximities positive
-        double carve = carveNoise.getValue(x * CARVE_FREQ_XZ, y * CARVE_FREQ_Y, z * CARVE_FREQ_XZ);
-        double d = blob + CARVE_AMP * carve;
+        double carve = carveNoise.getValue(x * tuning.carveFreqXZ(), y * tuning.carveFreqY(), z * tuning.carveFreqXZ());
+        double d = blob + tuning.carveAmp() * carve;
         return Mth.clamp(d, -1.0, 1.0);
+    }
+
+    /**
+     * Rounds off the sharp corner a plain linear falloff ({@code 1 - t}) has right at its peak
+     * (t=0) and at its edge (t=1) - a bare linear falloff is a cone/tent shape, with a pointed
+     * apex and a sharp crease where it meets zero, which is what was reading as oddly steep,
+     * almost squared-off hills and cliffs. This is the same value at {@code t=0.5} as the old
+     * linear formula (0.5), it just eases smoothly into and out of the ends instead of turning a
+     * hard corner there.
+     *
+     * <p>Left unchanged for {@code t >= 1} (still plain {@code 1 - t}) so the "how far outside an
+     * island's radius" math that {@link #GAP_CUTOFF} relies on keeps behaving exactly like before -
+     * only the inside-the-island shape changes.
+     */
+    private static double smoothTaper(double t) {
+        if (t <= 0.0) {
+            return 1.0;
+        }
+        if (t >= 1.0) {
+            return 1.0 - t;
+        }
+        return 1.0 - (3.0 * t * t - 2.0 * t * t * t);
     }
 
     @Override

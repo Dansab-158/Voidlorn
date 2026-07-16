@@ -51,6 +51,8 @@ public class Voidlorn {
         net.lobster.voidlorn.registry.ModAttachments.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(net.lobster.voidlorn.worldgen.WorldSeedInjector.class);
+        modEventBus.register(net.lobster.voidlorn.worldgen.WorldgenTuning.class);
         modEventBus.addListener(this::addCreative);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }

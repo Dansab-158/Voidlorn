@@ -1,0 +1,12 @@
+{
+  "type": "voidlorn:floating_monolith",
+  "config": {
+    "state_provider": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        { "data": { "Name": "minecraft:obsidian" }, "weight": 3 },
+        { "data": { "Name": "minecraft:crying_obsidian" }, "weight": 1 }
+      ]
+    }
+  }
+}

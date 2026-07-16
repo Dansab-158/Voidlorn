@@ -78,7 +78,7 @@ public class WorldgenGameTests {
         Holder<Biome> centerBiome = biomeGetter.getOrThrow(Biomes.THE_END);
         // A pool that's mostly small_end_islands - if it isn't filtered out, it'll dominate picks.
         HolderSet<Biome> pool = HolderSet.direct(smallEndIslands, smallEndIslands, smallEndIslands, midBiome);
-        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(pool, centerBiome, SEED);
+        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(pool, centerBiome, SEED, biomeGetter);
 
         for (int gx = 4; gx < 60; gx++) { // gx*512 >= ~2048 blocks => outside the origin carve-out
             int blockX = gx * 512 + 137, blockZ = 9000;
@@ -109,7 +109,7 @@ public class WorldgenGameTests {
                 realPool.size(), realPool.stream().map(h -> h.unwrapKey().map(Object::toString).orElse("?")).toList());
 
         Holder<Biome> centerBiome = biomeGetter.getOrThrow(Biomes.THE_END);
-        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(realPool, centerBiome, SEED);
+        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(realPool, centerBiome, SEED, biomeGetter);
 
         for (int gx = 4; gx < 200; gx++) { // gx*512 >= ~2048 blocks => outside the origin carve-out
             int blockX = gx * 512 + 137, blockZ = 9000;
@@ -133,7 +133,7 @@ public class WorldgenGameTests {
         Holder<Biome> highBiome = biomeGetter.getOrThrow(Biomes.END_HIGHLANDS);
         Holder<Biome> centerBiome = biomeGetter.getOrThrow(Biomes.THE_END);
         HolderSet<Biome> pool = HolderSet.direct(lowBiome, midBiome, highBiome);
-        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(pool, centerBiome, SEED);
+        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(pool, centerBiome, SEED, biomeGetter);
 
         var seen = new java.util.HashSet<Holder<Biome>>();
         for (int gx = 4; gx < 40; gx++) { // gx*512 >= ~2048 blocks => outside the origin carve-out
@@ -291,7 +291,7 @@ public class WorldgenGameTests {
         Holder<Biome> highBiome = biomeGetter.getOrThrow(Biomes.END_HIGHLANDS);
         Holder<Biome> centerBiome = biomeGetter.getOrThrow(Biomes.THE_END);
         HolderSet<Biome> archipelagoBiomes = HolderSet.direct(lowBiome, midBiome, highBiome);
-        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(archipelagoBiomes, centerBiome, SEED);
+        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(archipelagoBiomes, centerBiome, SEED, biomeGetter);
 
         return new NoiseBasedChunkGenerator(biomeSource, settingsHolder);
     }

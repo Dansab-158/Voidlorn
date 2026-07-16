@@ -1,5 +1,6 @@
 package net.lobster.voidlorn.worldgen.cell;
 
+import net.lobster.voidlorn.worldgen.WorldgenTuning;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,11 +19,11 @@ class ArchipelagoCellSamplerTest {
         for (int x = -5000; x <= 5000; x += 137) {
             for (int z = -5000; z <= 5000; z += 149) {
                 CellParameters p = s.cellAt(x, z);
-                assertTrue(p.centerY() >= ArchipelagoCellSampler.MIN_CENTER_Y
-                        && p.centerY() <= ArchipelagoCellSampler.MAX_CENTER_Y,
+                assertTrue(p.centerY() >= WorldgenTuning.ACTIVE.main().minCenterY()
+                        && p.centerY() <= WorldgenTuning.ACTIVE.main().maxCenterY(),
                         "centerY out of range at " + x + "," + z + " = " + p.centerY());
-                assertTrue(p.verticalExtent() >= ArchipelagoCellSampler.MIN_EXTENT
-                        && p.verticalExtent() <= ArchipelagoCellSampler.MAX_EXTENT);
+                assertTrue(p.verticalExtent() >= WorldgenTuning.ACTIVE.main().minExtent()
+                        && p.verticalExtent() <= WorldgenTuning.ACTIVE.main().maxExtent());
                 assertTrue(p.ruggednessTier() >= 0 && p.ruggednessTier() <= 2);
             }
         }

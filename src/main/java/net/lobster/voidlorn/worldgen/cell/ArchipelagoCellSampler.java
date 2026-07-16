@@ -1,35 +1,66 @@
 package net.lobster.voidlorn.worldgen.cell;
 
+import net.lobster.voidlorn.worldgen.WorldgenTuning;
+
 /**
- * Splits the world into a jittered grid of {@code CELL_SIZE} cells, each with one randomly
- * offset "site". {@link #cellAt} finds whichever site is nearest to a given point and returns
- * its parameters. Everything here is a hash of the site's lattice coordinates plus the seed, so
- * results are deterministic and never depend on distance from the world origin.
+ * Splits the world into a jittered grid of cells (spacing controlled by
+ * {@code archipelagoCellSize} in config), each with one randomly offset "site". {@link #cellAt}
+ * finds whichever site is nearest to a given point and returns its parameters. Everything here is
+ * a hash of the site's lattice coordinates plus the seed, so results are deterministic and never
+ * depend on distance from the world origin.
+ *
+ * <p>The actual spacing/count/size numbers all live in {@link WorldgenTuning} now (backed by
+ * config, see {@code Config.java}) rather than as constants on this class - every method here
+ * reads {@link WorldgenTuning#ACTIVE} fresh so a config change takes effect without needing a new
+ * sampler instance.
  */
 public final class ArchipelagoCellSampler {
 
-    // How far apart archipelagos are, on average, in blocks. Smaller = archipelagos closer
-    // together and more frequent while flying around; larger = more empty void between them.
-    public static final int CELL_SIZE = 512;
+    // Hard safety clamp on any island's final Y, regardless of what centerY/extent from config
+    // would otherwise produce - keeps everything within the build height with some headroom. Not
+    // exposed to config: unlike the other numbers, this one is a safety rail tied to the
+    // dimension's actual build height, not a "feel" knob - letting it drift arbitrarily risks
+    // silently broken generation rather than just a different-looking archipelago.
+    public static final int CORE_Y_MIN = 24, CORE_Y_MAX = 240;
 
-    // The vertical "home band" an archipelago's islands are centered around. Each cell picks one
-    // centerY in this range, then its islands scatter around that Y (see MIN_EXTENT/MAX_EXTENT
-    // below). Widen this range to spread archipelagos across more of the world's height overall.
-    public static final int MIN_CENTER_Y = 40, MAX_CENTER_Y = 160;
+    // Salts the hash so the filler layer doesn't land on the exact same jitter/centerY/extent as
+    // the main archipelago layer whenever their lattice indices happen to coincide - the two grids
+    // use different cell sizes so they're not physically aligned anyway, but this keeps them from
+    // being statistically correlated too.
+    private static final long FILLER_SALT = 0x51DE0FF5E7L;
 
-    // How far, in blocks, an individual island's Y can drift from its archipelago's centerY.
-    // Bigger extent = more dramatic height differences between islands in the same archipelago.
-    public static final int MIN_EXTENT = 24, MAX_EXTENT = 72;
-
-    private final long seed;
+    private long seed;
+    private final boolean filler;
 
     public ArchipelagoCellSampler(long seed) {
+        this(seed, false);
+    }
+
+    /** @param filler true for the small stepping-stone islet layer, false for the real archipelagos. */
+    public ArchipelagoCellSampler(long seed, boolean filler) {
+        this.seed = seed;
+        this.filler = filler;
+    }
+
+    private WorldgenTuning.IslandProfile profile() {
+        WorldgenTuning.Snapshot tuning = WorldgenTuning.ACTIVE;
+        return filler ? tuning.filler() : tuning.main();
+    }
+
+    /**
+     * Reseeds this sampler in place. Used once, at server start, to swap the placeholder seed
+     * baked into the datapack JSON for the real world seed - see {@link WorldSeedInjector}. Every
+     * cell/core lookup after this call reflects the new seed; nothing else needs to change since
+     * the sampler has no other state that depends on the seed.
+     */
+    public void setSeed(long seed) {
         this.seed = seed;
     }
 
     public CellParameters cellAt(int blockX, int blockZ) {
-        int gx = Math.floorDiv(blockX, CELL_SIZE);
-        int gz = Math.floorDiv(blockZ, CELL_SIZE);
+        int cellSize = profile().cellSize();
+        int gx = Math.floorDiv(blockX, cellSize);
+        int gz = Math.floorDiv(blockZ, cellSize);
 
         long bestDistSq = Long.MAX_VALUE;
         CellParameters best = null;
@@ -58,22 +89,25 @@ public final class ArchipelagoCellSampler {
      * nearest-site search at that point.
      */
     public CellParameters cellForLattice(int lx, int lz) {
+        WorldgenTuning.IslandProfile profile = profile();
+        int cellSize = profile.cellSize();
         long h = hash(lx, lz);
         // Jitter the site within its lattice cell using two bytes of the hash.
-        int jitterX = (int) ((h & 0xFF) * CELL_SIZE / 256);
-        int jitterZ = (int) (((h >>> 8) & 0xFF) * CELL_SIZE / 256);
-        int siteX = lx * CELL_SIZE + jitterX;
-        int siteZ = lz * CELL_SIZE + jitterZ;
+        int jitterX = (int) ((h & 0xFF) * cellSize / 256);
+        int jitterZ = (int) (((h >>> 8) & 0xFF) * cellSize / 256);
+        int siteX = lx * cellSize + jitterX;
+        int siteZ = lz * cellSize + jitterZ;
 
-        int centerY = MIN_CENTER_Y + (int) (unsignedFrac(h, 16) * (MAX_CENTER_Y - MIN_CENTER_Y));
-        int extent  = MIN_EXTENT   + (int) (unsignedFrac(h, 24) * (MAX_EXTENT - MIN_EXTENT));
+        int centerY = profile.minCenterY() + (int) (unsignedFrac(h, 16) * (profile.maxCenterY() - profile.minCenterY()));
+        int extent  = profile.minExtent()  + (int) (unsignedFrac(h, 24) * (profile.maxExtent() - profile.minExtent()));
         int tier    = (int) ((h >>> 32) % 3L);
         return new CellParameters(h, siteX, siteZ, centerY, extent, tier);
     }
 
     /** SplitMix64-style avalanche of the two lattice coords and the seed. */
     private long hash(int lx, int lz) {
-        long z = seed ^ (0x9E3779B97F4A7C15L * lx) ^ (0xC2B2AE3D27D4EB4FL * lz);
+        long saltedSeed = filler ? seed ^ FILLER_SALT : seed;
+        long z = saltedSeed ^ (0x9E3779B97F4A7C15L * lx) ^ (0xC2B2AE3D27D4EB4FL * lz);
         z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
         z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
         return z ^ (z >>> 31);
@@ -85,54 +119,32 @@ public final class ArchipelagoCellSampler {
     }
 
     // --- Island sub-lattice (per archipelago cell) ---
+    // How many islands, how far apart, and how big they are all come from WorldgenTuning now -
+    // see Config.java's archipelagoIslands*/archipelagoCoreDist*/archipelagoCoreRadius*/
+    // archipelagoCoreHeight*/archipelagoHillAmp* entries for what each one does.
 
-    // How many separate islands each archipelago gets. Raise ISLANDS_MAX for busier archipelagos,
-    // lower ISLANDS_MIN if you want some archipelagos to feel sparse.
-    public static final int ISLANDS_MIN = 3;
-    public static final int ISLANDS_MAX = 6; // inclusive
-
-    // How far an island can be placed from its archipelago's own center point. This is what
-    // creates the void gaps between islands - push CORE_DIST_MIN up and islands never crowd
-    // together; push CORE_DIST_MAX down and the whole archipelago feels tighter/smaller overall.
-    public static final double CORE_DIST_MIN = 48.0, CORE_DIST_MAX = 168.0;
-
-    // Island footprint size (radius) and vertical thickness (height), in blocks. This is the main
-    // "how big/chunky do islands look" knob. The floor got raised here after playtesting: the old
-    // minimum (radius 15, height 6) produced islands only ~30 blocks wide and ~4 blocks thick,
-    // which read as broken debris rather than real islands. The height ceiling was trimmed too, so
-    // the biggest islands don't feel like solid bricks of endstone.
-    public static final double CORE_RADIUS_MIN = 24.0, CORE_RADIUS_MAX = 46.0;
-    public static final double CORE_HEIGHT_MIN = 9.0, CORE_HEIGHT_MAX = 15.0;
-
-    // How tall the hills/monoliths on top of an island can get (added on top of the base height
-    // above). Most islands use the NORMAL amplitude; a rare ~1/8 of islands ("spiky", see
-    // islandCores below) use the taller SPIKY one for the occasional dramatic monolith.
-    public static final double HILL_AMP_NORMAL = 10.0, HILL_AMP_SPIKY = 17.0;
-
-    // Hard safety clamp on any island's final Y, regardless of what centerY/extent above would
-    // otherwise produce - keeps everything within the build height with some headroom.
-    public static final int CORE_Y_MIN = 24, CORE_Y_MAX = 232;
-
-    /** Deterministic 3..6 island cores for a cell, derived purely from its cellId. */
+    /** Deterministic island cores for a cell, derived purely from its cellId. */
     public IslandCore[] islandCores(CellParameters cell) {
+        WorldgenTuning.IslandProfile profile = profile();
         long id = cell.cellId();
-        int span = ISLANDS_MAX - ISLANDS_MIN + 1;               // 4
-        int count = ISLANDS_MIN + (int) (frac(id, 40) * span);  // 3..6
+        int span = profile.islandsMax() - profile.islandsMin() + 1;
+        int count = profile.islandsMin() + (int) (frac(id, 40) * span);
         IslandCore[] cores = new IslandCore[count];
         for (int i = 0; i < count; i++) {
             long ch = coreHash(id, i);
             double angle = frac(ch, 0) * (Math.PI * 2.0);
-            double dist  = CORE_DIST_MIN + frac(ch, 16) * (CORE_DIST_MAX - CORE_DIST_MIN);
+            double dist  = profile.coreDistMin() + frac(ch, 16) * (profile.coreDistMax() - profile.coreDistMin());
             int cx = cell.centerX() + (int) Math.round(Math.cos(angle) * dist);
             int cz = cell.centerZ() + (int) Math.round(Math.sin(angle) * dist);
             double rr = frac(ch, 24);
-            double radius = CORE_RADIUS_MIN + rr * rr * (CORE_RADIUS_MAX - CORE_RADIUS_MIN); // skew small
-            double height = CORE_HEIGHT_MIN + frac(ch, 32) * (CORE_HEIGHT_MAX - CORE_HEIGHT_MIN);
+            // skew small: most islands land toward the smaller end of the radius range
+            double radius = profile.coreRadiusMin() + rr * rr * (profile.coreRadiusMax() - profile.coreRadiusMin());
+            double height = profile.coreHeightMin() + frac(ch, 32) * (profile.coreHeightMax() - profile.coreHeightMin());
             double yFrac = frac(ch, 40) * 2.0 - 1.0;            // -1..1 within the cell's vertical band
             int coreY = (int) Math.round(cell.centerY() + yFrac * cell.verticalExtent());
             coreY = Math.max(CORE_Y_MIN, Math.min(CORE_Y_MAX, coreY));
             boolean spiky = ((ch >>> 56) & 0x7L) == 0L;        // ~1/8 monolith-forming cores
-            double hillAmp = spiky ? HILL_AMP_SPIKY : HILL_AMP_NORMAL;
+            double hillAmp = spiky ? profile.hillAmpSpiky() : profile.hillAmpNormal();
             cores[i] = new IslandCore(cx, cz, coreY, radius, height, hillAmp, ch);
         }
         return cores;

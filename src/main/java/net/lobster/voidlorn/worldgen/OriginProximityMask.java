@@ -2,6 +2,7 @@ package net.lobster.voidlorn.worldgen;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.lobster.voidlorn.Config;
 import net.minecraft.util.KeyDispatchDataCodec;
 import net.minecraft.world.level.levelgen.DensityFunction;
 
@@ -36,8 +37,17 @@ public final class OriginProximityMask implements DensityFunction.SimpleFunction
         this.outerRadius = outerRadius;
     }
 
-    /** 1.0 inside innerRadius, 0.0 outside outerRadius, smoothstep between. */
+    /**
+     * 1.0 inside innerRadius, 0.0 outside outerRadius, smoothstep between - except when
+     * Config.OVERRIDE_VANILLA_END is turned off, in which case this returns 1.0 everywhere. That
+     * pins final_density to 100% vanilla_end_density across the whole world (see final_density.json,
+     * which blends this mask against vanilla_end_density and archipelago_shaped), giving genuinely
+     * vanilla-shaped End terrain instead of an approximation of it.
+     */
     public double profile(int blockX, int blockZ) {
+        if (!Config.OVERRIDE_VANILLA_END.get()) {
+            return 1.0;
+        }
         double dist = Math.sqrt((double) blockX * blockX + (double) blockZ * blockZ);
         if (dist <= innerRadius) return 1.0;
         if (dist >= outerRadius) return 0.0;

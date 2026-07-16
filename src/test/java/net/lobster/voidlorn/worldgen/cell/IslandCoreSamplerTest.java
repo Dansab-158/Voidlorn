@@ -1,5 +1,6 @@
 package net.lobster.voidlorn.worldgen.cell;
 
+import net.lobster.voidlorn.worldgen.WorldgenTuning;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,9 +13,9 @@ class IslandCoreSamplerTest {
         for (int[] xz : new int[][]{{200, 200}, {5000, -3000}, {-40000, 12000}}) {
             CellParameters cell = sampler.cellAt(xz[0], xz[1]);
             IslandCore[] cores = sampler.islandCores(cell);
-            assertTrue(cores.length >= ArchipelagoCellSampler.ISLANDS_MIN,
+            assertTrue(cores.length >= WorldgenTuning.ACTIVE.main().islandsMin(),
                     "cell " + cell.cellId() + " had only " + cores.length + " cores");
-            assertTrue(cores.length <= ArchipelagoCellSampler.ISLANDS_MAX);
+            assertTrue(cores.length <= WorldgenTuning.ACTIVE.main().islandsMax());
         }
     }
 
@@ -32,9 +33,10 @@ class IslandCoreSamplerTest {
         for (int[] xz : new int[][]{{300, 300}, {60000, -60000}}) {
             CellParameters cell = sampler.cellAt(xz[0], xz[1]);
             for (IslandCore c : sampler.islandCores(cell)) {
-                assertTrue(c.radius() >= ArchipelagoCellSampler.CORE_RADIUS_MIN
-                        && c.radius() <= ArchipelagoCellSampler.CORE_RADIUS_MAX);
-                assertTrue(c.centerY() >= 24 && c.centerY() <= 232);
+                assertTrue(c.radius() >= WorldgenTuning.ACTIVE.main().coreRadiusMin()
+                        && c.radius() <= WorldgenTuning.ACTIVE.main().coreRadiusMax());
+                assertTrue(c.centerY() >= ArchipelagoCellSampler.CORE_Y_MIN
+                        && c.centerY() <= ArchipelagoCellSampler.CORE_Y_MAX);
             }
         }
     }
