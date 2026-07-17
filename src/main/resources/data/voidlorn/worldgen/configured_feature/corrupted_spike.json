@@ -1,0 +1,13 @@
+{
+  "type": "voidlorn:spike",
+  "config": {
+    "to_place": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        { "data": { "Name": "minecraft:obsidian" }, "weight": 5 },
+        { "data": { "Name": "minecraft:crying_obsidian" }, "weight": 3 },
+        { "data": { "Name": "minecraft:blackstone" }, "weight": 1 }
+      ]
+    }
+  }
+}

@@ -41,34 +41,46 @@ public final class WorldgenTuning {
             IslandProfile main,
             IslandProfile filler,
             double shapeFreq, double thickFreq,
-            double carveFreqXZ, double carveFreqY, double carveAmp
+            double carveFreqXZ, double carveFreqY, double carveAmp,
+            // A separate noise from shapeFreq/hillAmpNormal's hills - see the valleyFrequency/
+            // valleyDepth comments in Config.java for why this needs to be independent rather than
+            // just reusing the low side of the hill noise.
+            double valleyFreq, double valleyAmp,
+            // Haven islands only ever apply to the main archipelago layer (see
+            // ArchipelagoCellSampler#islandCores) - not per-IslandProfile since the filler layer has
+            // no equivalent, unlike every other main/filler pair above.
+            int havenChance, double havenRadiusMin, double havenRadiusMax, double havenHillAmp,
+            double havenShapeFreq
     ) {}
 
     // Mirrors whatever's currently in Config.java, so a fresh build/test run behaves exactly like
     // the shipped defaults even before any config file has been read.
     public static final Snapshot DEFAULTS = new Snapshot(
             new IslandProfile(
-                    416,
+                    440,
                     40, 200,
                     32, 104,
-                    4, 8,
-                    80.0, 220.0,
-                    22.0, 42.0,
+                    3, 6,
+                    140.0, 320.0,
+                    40.0, 85.0,
                     10.0, 16.0,
                     10.0, 17.0
             ),
             new IslandProfile(
-                    144,
+                    90,
                     40, 200,
                     16, 48,
-                    2, 4,
-                    16.0, 56.0,
-                    5.0, 9.0,
+                    3, 6,
+                    12.0, 40.0,
+                    15.0, 28.0,
                     3.0, 5.0,
                     4.0, 8.0
             ),
-            0.045, 0.035,
-            0.014, 0.022, 0.55
+            0.035, 0.035,
+            0.014, 0.022, 1.0,
+            0.012, 24.0,
+            12, 130.0, 200.0, 14.0,
+            0.009
     );
 
     // volatile, not synchronized: Reloading can fire off the server/client thread (see
@@ -111,11 +123,17 @@ public final class WorldgenTuning {
                 "archipelagoFiller"
         );
 
+        double havenRadiusMin = Math.min(Config.ARCHIPELAGO_HAVEN_RADIUS_MIN.get(), Config.ARCHIPELAGO_HAVEN_RADIUS_MAX.get());
+        double havenRadiusMax = Math.max(Config.ARCHIPELAGO_HAVEN_RADIUS_MIN.get(), Config.ARCHIPELAGO_HAVEN_RADIUS_MAX.get());
+
         ACTIVE = new Snapshot(
                 main, filler,
                 Config.ARCHIPELAGO_SHAPE_FREQ.get(), Config.ARCHIPELAGO_THICK_FREQ.get(),
                 Config.ARCHIPELAGO_CARVE_FREQ_XZ.get(), Config.ARCHIPELAGO_CARVE_FREQ_Y.get(),
-                Config.ARCHIPELAGO_CARVE_AMP.get()
+                Config.ARCHIPELAGO_CARVE_AMP.get(),
+                Config.ARCHIPELAGO_VALLEY_FREQ.get(), Config.ARCHIPELAGO_VALLEY_AMP.get(),
+                Config.ARCHIPELAGO_HAVEN_CHANCE.get(), havenRadiusMin, havenRadiusMax,
+                Config.ARCHIPELAGO_HAVEN_HILL_AMP.get(), Config.ARCHIPELAGO_HAVEN_SHAPE_FREQ.get()
         );
     }
 

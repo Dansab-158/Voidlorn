@@ -100,9 +100,25 @@ public class ArchipelagoBiomeSource extends BiomeSource {
      * the actual game. Filtering here instead always reads whatever is currently bound.
      */
     private List<Holder<Biome>> eligibleBiomes() {
-        return archipelagoBiomes.stream()
+        return eligibleBiomes(archipelagoBiomes);
+    }
+
+    private static List<Holder<Biome>> eligibleBiomes(HolderSet<Biome> pool) {
+        return pool.stream()
                 .filter(h -> h.unwrapKey().map(key -> !EXCLUDED_BIOMES.contains(key)).orElse(true))
                 .toList();
+    }
+
+    /**
+     * Which biome a given archipelago cell resolves to, from a given pool - the exact same
+     * selection {@link #getNoiseBiome} uses. Exposed so {@link ArchipelagoIslandsDensityFunction}
+     * can ask "what biome would be here" for its own purposes (e.g. flattening hills in a specific
+     * biome) without duplicating this logic and risking it drifting out of sync with what the
+     * biome source actually picks.
+     */
+    public static Holder<Biome> resolvePoolBiome(HolderSet<Biome> pool, long cellId) {
+        List<Holder<Biome>> eligible = eligibleBiomes(pool);
+        return eligible.get(pickIndex(cellId, eligible.size()));
     }
 
     /** True within {@link #CENTER_RADIUS} of (0,0) — the preserved vanilla dragon-island zone. */
@@ -139,7 +155,6 @@ public class ArchipelagoBiomeSource extends BiomeSource {
             return centerBiome;
         }
         CellParameters cell = sampler.cellAt(blockX, blockZ);
-        List<Holder<Biome>> pool = eligibleBiomes();
-        return pool.get(pickIndex(cell.cellId(), pool.size()));
+        return resolvePoolBiome(archipelagoBiomes, cell.cellId());
     }
 }

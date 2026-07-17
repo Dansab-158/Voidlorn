@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:disk",
+  "config": {
+    "half_height": 2,
+    "radius": { "type": "minecraft:uniform", "min_inclusive": 2, "max_inclusive": 5 },
+    "state_provider": {
+      "fallback": {
+        "type": "minecraft:weighted_state_provider",
+        "entries": [
+          { "data": { "Name": "minecraft:blackstone" }, "weight": 4 },
+          { "data": { "Name": "minecraft:gilded_blackstone" }, "weight": 2 },
+          { "data": { "Name": "minecraft:obsidian" }, "weight": 1 },
+          { "data": { "Name": "minecraft:crying_obsidian" }, "weight": 1 }
+        ]
+      },
+      "rules": []
+    },
+    "target": {
+      "type": "minecraft:matching_blocks",
+      "blocks": [
+        "minecraft:end_stone",
+        "minecraft:calcite",
+        "minecraft:blackstone",
+        "minecraft:gilded_blackstone",
+        "minecraft:obsidian",
+        "minecraft:crying_obsidian"
+      ]
+    }
+  }
+}

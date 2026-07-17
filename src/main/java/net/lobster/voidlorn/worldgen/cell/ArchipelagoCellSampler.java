@@ -125,14 +125,33 @@ public final class ArchipelagoCellSampler {
 
     /** Deterministic island cores for a cell, derived purely from its cellId. */
     public IslandCore[] islandCores(CellParameters cell) {
+        WorldgenTuning.Snapshot tuning = WorldgenTuning.ACTIVE;
         WorldgenTuning.IslandProfile profile = profile();
         long id = cell.cellId();
+
+        // Havens only ever replace a main-layer cell's whole cluster with one big island - never
+        // on the filler layer, which is meant to stay small stepping stones (see its own doc
+        // comment on the filler config section). Centered rather than jittered like a normal core,
+        // since it has the whole cell to itself and centering minimizes how far its oversized
+        // radius can reach into a neighboring cell.
+        if (!filler && Math.floorMod(id, tuning.havenChance()) == 0L) {
+            return new IslandCore[] { havenCore(cell, tuning, profile) };
+        }
+
         int span = profile.islandsMax() - profile.islandsMin() + 1;
         int count = profile.islandsMin() + (int) (frac(id, 40) * span);
+        // Each core gets its own angular slice of the circle (2*PI/count wide) instead of a fully
+        // free random angle, with jitter confined to 80% of that slice so it can't spill into a
+        // neighboring core's slice. A free random angle let siblings land close together by pure
+        // chance far too often (measured ~59% of cells had at least one overlapping pair before
+        // this) - spacing them out by construction fixes the common case; the density function's
+        // union-of-blobs blend (see ArchipelagoIslandsDensityFunction#density) smooths over
+        // whatever overlap still slips through here or across a cell boundary.
+        double sector = (Math.PI * 2.0) / count;
         IslandCore[] cores = new IslandCore[count];
         for (int i = 0; i < count; i++) {
             long ch = coreHash(id, i);
-            double angle = frac(ch, 0) * (Math.PI * 2.0);
+            double angle = i * sector + (frac(ch, 0) - 0.5) * sector * 0.8;
             double dist  = profile.coreDistMin() + frac(ch, 16) * (profile.coreDistMax() - profile.coreDistMin());
             int cx = cell.centerX() + (int) Math.round(Math.cos(angle) * dist);
             int cz = cell.centerZ() + (int) Math.round(Math.sin(angle) * dist);
@@ -145,12 +164,22 @@ public final class ArchipelagoCellSampler {
             coreY = Math.max(CORE_Y_MIN, Math.min(CORE_Y_MAX, coreY));
             boolean spiky = ((ch >>> 56) & 0x7L) == 0L;        // ~1/8 monolith-forming cores
             double hillAmp = spiky ? profile.hillAmpSpiky() : profile.hillAmpNormal();
-            cores[i] = new IslandCore(cx, cz, coreY, radius, height, hillAmp, ch);
+            cores[i] = new IslandCore(cx, cz, coreY, radius, height, hillAmp, false, ch);
         }
         return cores;
     }
 
-    /** Nearest (horizontally) island core in the given cell. Never null (cores.length >= 3). */
+    /** The single large island that takes over a whole "haven" cell - see {@link #islandCores}. */
+    private IslandCore havenCore(CellParameters cell, WorldgenTuning.Snapshot tuning, WorldgenTuning.IslandProfile profile) {
+        long ch = coreHash(cell.cellId(), 0);
+        double rr = frac(ch, 24); // no small-skew here, unlike normal cores - big is the whole point
+        double radius = tuning.havenRadiusMin() + rr * (tuning.havenRadiusMax() - tuning.havenRadiusMin());
+        double height = profile.coreHeightMin() + frac(ch, 32) * (profile.coreHeightMax() - profile.coreHeightMin());
+        int coreY = Math.max(CORE_Y_MIN, Math.min(CORE_Y_MAX, cell.centerY()));
+        return new IslandCore(cell.centerX(), cell.centerZ(), coreY, radius, height, tuning.havenHillAmp(), true, ch);
+    }
+
+    /** Nearest (horizontally) island core in the given cell. Never null (cores.length >= 1). */
     public IslandCore nearestCore(CellParameters cell, int blockX, int blockZ) {
         IslandCore[] cores = islandCores(cell);
         IslandCore best = cores[0];

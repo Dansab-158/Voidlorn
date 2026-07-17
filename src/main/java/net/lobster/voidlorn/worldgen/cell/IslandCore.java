@@ -10,6 +10,10 @@ package net.lobster.voidlorn.worldgen.cell;
  * @param radius  horizontal radius in blocks beyond which this core contributes only void
  * @param height  vertical half-extent in blocks of the island's solid band
  * @param hillAmp amplitude (blocks) by which surface noise warps the island top (hills/monoliths)
+ * @param haven   true for a "haven" - one large island (full hills/valleys/canyons, same as any
+ *                other core - size is what sets it apart) replacing its whole cell's normal
+ *                cluster, instead of one of several jittered cores (see
+ *                {@link net.lobster.voidlorn.worldgen.cell.ArchipelagoCellSampler#islandCores})
  * @param coreId  the per-core hash (also seeds nothing directly; useful for debugging)
  */
 public record IslandCore(
@@ -19,5 +23,6 @@ public record IslandCore(
         double radius,
         double height,
         double hillAmp,
+        boolean haven,
         long coreId
 ) {}

@@ -9,9 +9,9 @@
   "disable_mob_generation": false,
   "legacy_random_source": true,
   "noise": {
-    "height": 256,
+    "height": 320,
     "min_y": 0,
-    "size_horizontal": 2,
+    "size_horizontal": 1,
     "size_vertical": 1
   },
   "noise_router": {
@@ -87,6 +87,87 @@
   "surface_rule": {
     "type": "minecraft:sequence",
     "sequence": [
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:biome",
+          "biome_is": ["voidlorn:corrupted_desert"]
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:noise_threshold",
+                "noise": "minecraft:patch",
+                "min_threshold": -1.0,
+                "max_threshold": -0.98
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": { "Name": "minecraft:end_stone" }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:noise_threshold",
+                "noise": "minecraft:patch",
+                "min_threshold": 0.98,
+                "max_threshold": 1.0
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": { "Name": "minecraft:calcite" }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:noise_threshold",
+                "noise": "minecraft:patch",
+                "min_threshold": -0.15,
+                "max_threshold": -0.08
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": { "Name": "minecraft:obsidian" }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:noise_threshold",
+                "noise": "minecraft:patch",
+                "min_threshold": 0.08,
+                "max_threshold": 0.15
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": { "Name": "minecraft:crying_obsidian" }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:noise_threshold",
+                "noise": "minecraft:patch",
+                "min_threshold": 0.435,
+                "max_threshold": 0.475
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": { "Name": "minecraft:gilded_blackstone" }
+              }
+            },
+            {
+              "type": "minecraft:block",
+              "result_state": { "Name": "minecraft:blackstone" }
+            }
+          ]
+        }
+      },
       {
         "type": "minecraft:block",
         "result_state": {

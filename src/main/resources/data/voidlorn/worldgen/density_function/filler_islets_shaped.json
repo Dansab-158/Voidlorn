@@ -1,5 +1,7 @@
 {
   "type": "voidlorn:archipelago_islands",
   "seed": 0,
-  "filler": true
+  "filler": true,
+  "archipelago_biomes": "#voidlorn:archipelago_biomes",
+  "flat_terrain_biomes": "#voidlorn:flat_terrain_biomes"
 }

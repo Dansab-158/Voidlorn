@@ -44,11 +44,18 @@ public class Config {
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_CORE_HEIGHT_MAX;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_HILL_AMP_NORMAL;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_HILL_AMP_SPIKY;
+    public static final ModConfigSpec.DoubleValue ARCHIPELAGO_VALLEY_FREQ;
+    public static final ModConfigSpec.DoubleValue ARCHIPELAGO_VALLEY_AMP;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_SHAPE_FREQ;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_THICK_FREQ;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_CARVE_FREQ_XZ;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_CARVE_FREQ_Y;
     public static final ModConfigSpec.DoubleValue ARCHIPELAGO_CARVE_AMP;
+    public static final ModConfigSpec.IntValue ARCHIPELAGO_HAVEN_CHANCE;
+    public static final ModConfigSpec.DoubleValue ARCHIPELAGO_HAVEN_RADIUS_MIN;
+    public static final ModConfigSpec.DoubleValue ARCHIPELAGO_HAVEN_RADIUS_MAX;
+    public static final ModConfigSpec.DoubleValue ARCHIPELAGO_HAVEN_HILL_AMP;
+    public static final ModConfigSpec.DoubleValue ARCHIPELAGO_HAVEN_SHAPE_FREQ;
 
     static {
         BUILDER.push("archipelago");
@@ -56,8 +63,8 @@ public class Config {
         ARCHIPELAGO_CELL_SIZE = BUILDER
                 .comment("How far apart the groups of islands (archipelagos) are from each other, on",
                         "average, in blocks. Lower this to make them feel closer together while flying",
-                        "around; raise it for more open space between them. Default: 416.")
-                .defineInRange("archipelagoSpacing", 416, 256, 1024);
+                        "around; raise it for more open space between them. Default: 440.")
+                .defineInRange("archipelagoSpacing", 440, 256, 1024);
 
         ARCHIPELAGO_MIN_CENTER_Y = BUILDER
                 .comment("Together with maxArchipelagoHeight, sets the range of altitudes where a group",
@@ -83,37 +90,37 @@ public class Config {
                 .defineInRange("maxHeightVariation", 104, 32, 160);
 
         ARCHIPELAGO_ISLANDS_MIN = BUILDER
-                .comment("Fewest islands a single archipelago can have. Default: 4.")
-                .defineInRange("minIslandsPerArchipelago", 4, 1, 12);
+                .comment("Fewest islands a single archipelago can have. Default: 3.")
+                .defineInRange("minIslandsPerArchipelago", 3, 1, 12);
 
         ARCHIPELAGO_ISLANDS_MAX = BUILDER
                 .comment("Most islands a single archipelago can have - raise this for busier, denser",
-                        "groups of islands. Default: 8.")
-                .defineInRange("maxIslandsPerArchipelago", 8, 1, 16);
+                        "groups of islands. Default: 6.")
+                .defineInRange("maxIslandsPerArchipelago", 6, 1, 16);
 
         ARCHIPELAGO_CORE_DIST_MIN = BUILDER
                 .comment("The closest, in blocks, two islands in the same archipelago can sit to each",
                         "other. This is what keeps a gap of void between them - raise it if islands feel",
-                        "too crowded together. Default: 80.0.")
-                .defineInRange("minIslandSpacing", 80.0, 0.0, 511.0);
+                        "too crowded together. Default: 140.0.")
+                .defineInRange("minIslandSpacing", 140.0, 0.0, 511.0);
 
         ARCHIPELAGO_CORE_DIST_MAX = BUILDER
                 .comment("The farthest two islands in the same archipelago can sit from each other. Must",
                         "stay below archipelagoSpacing or islands can get cut off at the edge of their",
                         "group - if you set it too high, it's automatically brought back down and a",
-                        "warning is logged. Default: 220.0.")
-                .defineInRange("maxIslandSpacing", 220.0, 0.0, 511.0);
+                        "warning is logged. Default: 320.0.")
+                .defineInRange("maxIslandSpacing", 320.0, 0.0, 511.0);
 
         ARCHIPELAGO_CORE_RADIUS_MIN = BUILDER
                 .comment("The smallest an island's footprint can be, in blocks. Don't go much below 20 -",
                         "smaller than that and islands stop looking like real islands and start looking",
-                        "like scattered rubble. Default: 22.0.")
-                .defineInRange("minIslandSize", 22.0, 20.0, 64.0);
+                        "like scattered rubble. Default: 40.0.")
+                .defineInRange("minIslandSize", 40.0, 20.0, 64.0);
 
         ARCHIPELAGO_CORE_RADIUS_MAX = BUILDER
                 .comment("The biggest an island's footprint can be, in blocks. This is the main \"how big",
-                        "do islands get\" setting. Default: 42.0.")
-                .defineInRange("maxIslandSize", 42.0, 24.0, 128.0);
+                        "do islands get\" setting. Default: 85.0.")
+                .defineInRange("maxIslandSize", 85.0, 24.0, 128.0);
 
         ARCHIPELAGO_CORE_HEIGHT_MIN = BUILDER
                 .comment("How thick, top to bottom, the thinnest islands are, in blocks. Keep this at 8",
@@ -134,12 +141,27 @@ public class Config {
                         "gets a taller, spikier monolith instead of a normal hill. Default: 17.0.")
                 .defineInRange("dramaticHillHeight", 17.0, 0.0, 96.0);
 
+        ARCHIPELAGO_VALLEY_FREQ = BUILDER
+                .comment("How closely packed the valleys are across an island's surface. A separate,",
+                        "independent noise from hillHeight's hills/bumps - valleys show up wherever this",
+                        "noise happens to dip low, with no relationship to where the hills happen to be,",
+                        "so a valley can just as easily cut into the middle of a hill as anywhere else.",
+                        "Default: 0.012.")
+                .defineInRange("valleyFrequency", 0.012, 0.001, 0.2);
+
+        ARCHIPELAGO_VALLEY_AMP = BUILDER
+                .comment("How deep valleys can cut down, in blocks. Kept deep enough by default to reach",
+                        "below an island's own normal underside (see minIslandThickness/maxIslandThickness)",
+                        "so a valley can genuinely gouge all the way through, not just dip the surface a",
+                        "little. Default: 24.0.")
+                .defineInRange("valleyDepth", 24.0, 0.0, 96.0);
+
         ARCHIPELAGO_SHAPE_FREQ = BUILDER
                 .comment("How closely packed the hills and bumps are across an island's surface. Higher",
                         "makes the terrain busier, with more small hills close together; lower makes it",
                         "smoother and calmer. Needs to stay reasonably high so even a small island shows",
-                        "a couple of real hills instead of one flat, tilted slope. Default: 0.045.")
-                .defineInRange("hillBumpiness", 0.045, 0.001, 0.2);
+                        "a couple of real hills instead of one flat, tilted slope. Default: 0.035.")
+                .defineInRange("hillBumpiness", 0.035, 0.001, 0.2);
 
         ARCHIPELAGO_THICK_FREQ = BUILDER
                 .comment("How quickly an island's thickness changes as you move across it. Default: 0.035.")
@@ -158,8 +180,43 @@ public class Config {
         ARCHIPELAGO_CARVE_AMP = BUILDER
                 .comment("How aggressively those canyons and overhangs cut into an island's shape. Higher",
                         "makes for more dramatic, broken-up islands; lower makes for smoother, more solid",
-                        "ones. Default: 0.55.")
-                .defineInRange("caveCarvingStrength", 0.55, 0.0, 2.0);
+                        "ones. Needs to reach roughly 1.0 for carving to be able to reach all the way to",
+                        "an island's own geometric center - below that, the center is mathematically too",
+                        "\"solid\" (see smoothTaper) for any amount of carve noise to punch through, so",
+                        "canyons/holes only ever show up nearer the edges. Default: 1.0.")
+                .defineInRange("caveCarvingStrength", 1.0, 0.0, 2.0);
+
+        ARCHIPELAGO_HAVEN_CHANCE = BUILDER
+                .comment("1 in this many archipelagos becomes a \"haven\": one big, calm island instead of",
+                        "the usual cluster - somewhere to land and build before you have an elytra. Lower",
+                        "for more frequent havens, higher for rarer ones. Never biased toward spawn - just",
+                        "as rare next to the origin as anywhere else. Default: 12.")
+                .defineInRange("havenChance", 12, 4, 64);
+
+        ARCHIPELAGO_HAVEN_RADIUS_MIN = BUILDER
+                .comment("Smallest a haven island's footprint can be, in blocks. Default: 130.0.")
+                .defineInRange("havenRadiusMin", 130.0, 64.0, 400.0);
+
+        ARCHIPELAGO_HAVEN_RADIUS_MAX = BUILDER
+                .comment("Biggest a haven island's footprint can be, in blocks. Default: 200.0.")
+                .defineInRange("havenRadiusMax", 200.0, 64.0, 400.0);
+
+        ARCHIPELAGO_HAVEN_HILL_AMP = BUILDER
+                .comment("How tall the hills (and valleys, and canyons - same carving as a normal island",
+                        "applies here too) on a haven island get, in blocks. A haven's size is what makes",
+                        "it a haven, not flatness - full mountains/valleys keep it worth looking at.",
+                        "Default: 14.0.")
+                .defineInRange("havenHillHeight", 14.0, 0.0, 32.0);
+
+        ARCHIPELAGO_HAVEN_SHAPE_FREQ = BUILDER
+                .comment("How closely packed the large-scale mountains/valleys are across a haven island.",
+                        "hillBumpiness is tuned for a normal-sized island's radius, so reusing it as-is on",
+                        "a haven (2-5x bigger) just tiles the same small bump size across a much larger",
+                        "area - it reads as flat, repetitive \"bubble wrap\" instead of real mountains,",
+                        "since nothing separate ever varies at the scale of the whole island. This is a",
+                        "second, lower frequency blended in (mostly this, a little hillBumpiness for fine",
+                        "detail) so a haven gets a handful of genuinely large features instead. Default: 0.009.")
+                .defineInRange("havenShapeFreq", 0.009, 0.001, 0.05);
 
         BUILDER.pop();
     }
@@ -192,8 +249,10 @@ public class Config {
         ARCHIPELAGO_FILLER_CELL_SIZE = BUILDER
                 .comment("Average spacing, in blocks, between small islands. Keep this well below",
                         "archipelagoSpacing so they actually fill the gaps instead of forming another,",
-                        "smaller archipelago pattern of their own. Default: 144.")
-                .defineInRange("smallIslandSpacing", 144, 32, 400);
+                        "smaller archipelago pattern of their own. Kept fairly tight by default so a",
+                        "player without an elytra yet always has somewhere close by to hop to, instead",
+                        "of needing several stacks of blocks to bridge one gap. Default: 90.")
+                .defineInRange("smallIslandSpacing", 90, 32, 400);
 
         ARCHIPELAGO_FILLER_MIN_CENTER_Y = BUILDER
                 .comment("Same idea as minArchipelagoHeight, but for small islands. Default: 40.")
@@ -212,30 +271,31 @@ public class Config {
                 .defineInRange("smallIslandMaxHeightVariation", 48, 16, 160);
 
         ARCHIPELAGO_FILLER_ISLANDS_MIN = BUILDER
-                .comment("Fewest small islands in one cluster. Default: 2.")
-                .defineInRange("minSmallIslandsPerGroup", 2, 1, 12);
+                .comment("Fewest small islands in one cluster. Default: 3.")
+                .defineInRange("minSmallIslandsPerGroup", 3, 1, 12);
 
         ARCHIPELAGO_FILLER_ISLANDS_MAX = BUILDER
-                .comment("Most small islands in one cluster. Default: 4.")
-                .defineInRange("maxSmallIslandsPerGroup", 4, 1, 16);
+                .comment("Most small islands in one cluster. Default: 6.")
+                .defineInRange("maxSmallIslandsPerGroup", 6, 1, 16);
 
         ARCHIPELAGO_FILLER_CORE_DIST_MIN = BUILDER
-                .comment("Same idea as minIslandSpacing, but for small islands. Default: 16.0.")
-                .defineInRange("minSmallIslandSpacing", 16.0, 0.0, 399.0);
+                .comment("Same idea as minIslandSpacing, but for small islands. Default: 12.0.")
+                .defineInRange("minSmallIslandSpacing", 12.0, 0.0, 399.0);
 
         ARCHIPELAGO_FILLER_CORE_DIST_MAX = BUILDER
                 .comment("Same idea as maxIslandSpacing, but for small islands - must stay below",
-                        "smallIslandSpacing (enforced automatically). Default: 56.0.")
-                .defineInRange("maxSmallIslandSpacing", 56.0, 0.0, 399.0);
+                        "smallIslandSpacing (enforced automatically). Default: 40.0.")
+                .defineInRange("maxSmallIslandSpacing", 40.0, 0.0, 399.0);
 
         ARCHIPELAGO_FILLER_CORE_RADIUS_MIN = BUILDER
-                .comment("Smallest small-island footprint, in blocks. Kept small on purpose - these are",
-                        "meant to feel like a quick stepping stone, not a real island. Default: 5.0.")
-                .defineInRange("minSmallIslandSize", 5.0, 3.0, 32.0);
+                .comment("Smallest small-island footprint, in blocks. Sized to comfortably land and rest",
+                        "on while crossing a gap - not a full island, but not a bare speck either.",
+                        "Default: 15.0.")
+                .defineInRange("minSmallIslandSize", 15.0, 3.0, 32.0);
 
         ARCHIPELAGO_FILLER_CORE_RADIUS_MAX = BUILDER
-                .comment("Largest small-island footprint, in blocks. Default: 9.0.")
-                .defineInRange("maxSmallIslandSize", 9.0, 3.0, 48.0);
+                .comment("Largest small-island footprint, in blocks. Default: 28.0.")
+                .defineInRange("maxSmallIslandSize", 28.0, 3.0, 48.0);
 
         ARCHIPELAGO_FILLER_CORE_HEIGHT_MIN = BUILDER
                 .comment("Thinnest a small island can be, top to bottom, in blocks. Default: 3.0.")

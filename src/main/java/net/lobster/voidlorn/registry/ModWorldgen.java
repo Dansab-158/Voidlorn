@@ -7,6 +7,8 @@ import net.lobster.voidlorn.worldgen.ArchipelagoIslandsDensityFunction;
 import net.lobster.voidlorn.worldgen.OriginProximityMask;
 import net.lobster.voidlorn.worldgen.feature.FloatingMonolithConfiguration;
 import net.lobster.voidlorn.worldgen.feature.FloatingMonolithFeature;
+import net.lobster.voidlorn.worldgen.feature.SpikeConfiguration;
+import net.lobster.voidlorn.worldgen.feature.SpikeFeature;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.feature.Feature;
@@ -40,6 +42,9 @@ public final class ModWorldgen {
 
     public static final DeferredHolder<Feature<?>, FloatingMonolithFeature> FLOATING_MONOLITH =
             FEATURES.register("floating_monolith", () -> new FloatingMonolithFeature(FloatingMonolithConfiguration.CODEC));
+
+    public static final DeferredHolder<Feature<?>, SpikeFeature> SPIKE =
+            FEATURES.register("spike", () -> new SpikeFeature(SpikeConfiguration.CODEC));
 
     public static void register(IEventBus modEventBus) {
         DENSITY_FUNCTION_TYPES.register(modEventBus);

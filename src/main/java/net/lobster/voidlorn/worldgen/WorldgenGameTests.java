@@ -173,7 +173,7 @@ public class WorldgenGameTests {
     public void islandsAreDiscreteWithVoidGaps(GameTestHelper helper) {
         RegistryAccess registries = helper.getLevel().registryAccess();
         NoiseBasedChunkGenerator generator = buildArchipelagoGenerator(registries);
-        LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(0, 256);
+        LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(0, 320);
         RandomState randomState = buildRandomState(registries);
         ArchipelagoCellSampler sampler = new ArchipelagoCellSampler(SEED);
 
@@ -212,7 +212,7 @@ public class WorldgenGameTests {
     public void islandsAreVerticallyDistributedWithinArchipelago(GameTestHelper helper) {
         RegistryAccess registries = helper.getLevel().registryAccess();
         NoiseBasedChunkGenerator generator = buildArchipelagoGenerator(registries);
-        LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(0, 256);
+        LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(0, 320);
         RandomState randomState = buildRandomState(registries);
         ArchipelagoCellSampler sampler = new ArchipelagoCellSampler(SEED);
 
@@ -261,7 +261,7 @@ public class WorldgenGameTests {
     public void originIslandIsPreservedVanilla(GameTestHelper helper) {
         RegistryAccess registries = helper.getLevel().registryAccess();
         NoiseBasedChunkGenerator generator = buildArchipelagoGenerator(registries);
-        LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(0, 256);
+        LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(0, 320);
         RandomState randomState = buildRandomState(registries);
 
         // The vanilla central island exists near (0,0): the spawn-platform column has solid ground.
@@ -274,6 +274,32 @@ public class WorldgenGameTests {
         if (!ArchipelagoBiomeSource.isCentralColumn(0, 0)
                 || ArchipelagoBiomeSource.isCentralColumn(3000, 3000)) {
             helper.fail("origin biome carve-out boundary is wrong");
+            return;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public void corruptedDesertResolvesAndHasDistinctSurface(GameTestHelper helper) {
+        RegistryAccess registries = helper.getLevel().registryAccess();
+        HolderGetter<Biome> biomeGetter = registries.lookupOrThrow(Registries.BIOME);
+        ResourceKey<Biome> desertKey = ResourceKey.create(Registries.BIOME,
+                ResourceLocation.fromNamespaceAndPath(Voidlorn.MODID, "corrupted_desert"));
+        if (biomeGetter.get(desertKey).isEmpty()) {
+            helper.fail("voidlorn:corrupted_desert biome is not registered");
+            return;
+        }
+        Holder<Biome> desertBiome = biomeGetter.getOrThrow(desertKey);
+        Holder<Biome> centerBiome = biomeGetter.getOrThrow(Biomes.THE_END);
+        HolderSet<Biome> pool = HolderSet.direct(desertBiome);
+        ArchipelagoBiomeSource biomeSource = new ArchipelagoBiomeSource(pool, centerBiome, SEED, biomeGetter);
+
+        // Every non-central column now resolves to the desert (pool of size 1) - confirm the
+        // biome itself is reachable and distinct from the vanilla center biome.
+        Holder<Biome> resolved = biomeSource.getNoiseBiome(
+                QuartPos.fromBlock(9000), QuartPos.fromBlock(64), QuartPos.fromBlock(9000), Climate.empty());
+        if (!resolved.is(desertKey)) {
+            helper.fail("expected the pool (size 1, desert only) to resolve to the desert biome");
             return;
         }
         helper.succeed();

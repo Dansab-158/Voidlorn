@@ -1,0 +1,10 @@
+{
+  "type": "voidlorn:spike",
+  "config": {
+    "to_place": {
+      "type": "minecraft:simple_state_provider",
+      "state": { "Name": "minecraft:tuff" }
+    },
+    "size_scale": 0.35
+  }
+}
